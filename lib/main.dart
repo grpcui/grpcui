@@ -49,8 +49,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final _services = <ServiceDescriptorProto>[];
-  ServiceDescriptorProto? _service;
+  final List<FileDescriptor> _files = [];
+
+  ServiceDescriptor? _service;
   MethodDescriptorProto? _method;
 
   void _listServices(
@@ -70,7 +71,8 @@ class _MyHomePageState extends State<MyHomePage> {
     client.serverReflectionInfo(controller.stream).listen((value) {
       if (value.hasListServicesResponse()) {
         final response = value.listServicesResponse;
-        _services.clear();
+
+        _files.clear();
         _service = null;
         _method = null;
 
@@ -82,9 +84,22 @@ class _MyHomePageState extends State<MyHomePage> {
         final f = value.fileDescriptorResponse.fileDescriptorProto;
         final fds = f.map((e) => FileDescriptorProto.fromBuffer(e)).toList();
 
-        for (final fd in fds) {
-          _services.addAll(fd.service);
-        }
+        final files = fds.map(
+          (e) {
+            final fdis = FileDescriptor(
+              e,
+              e.service.map((el) => ServiceDescriptor(el, el.method)).toList(),
+            );
+
+            for (final sdis in fdis.services) {
+              sdis.file = fdis;
+            }
+
+            return fdis;
+          },
+        );
+
+        _files.addAll(files);
       }
 
       if (mounted) {
@@ -97,6 +112,15 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final services = <ServiceDescriptor>[];
+
+    for (final file in _files) {
+      services.addAll(file.services);
+    }
+
+    final inputType = findDescriptor(_method?.inputType);
+    final outputType = findDescriptor(_method?.outputType);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('gRPC UI'),
@@ -110,15 +134,15 @@ class _MyHomePageState extends State<MyHomePage> {
       body: LayoutBuilder(builder: (context, constraints) {
         final small = constraints.biggest.width <= 360;
 
-        final service = DropdownButtonFormField<ServiceDescriptorProto>(
+        final service = DropdownButtonFormField<ServiceDescriptor>(
           hint: const Text('Select'),
           value: _service,
           decoration: const InputDecoration(labelText: 'Service'),
-          items: _services
+          items: services
               .map(
-                (e) => DropdownMenuItem<ServiceDescriptorProto>(
+                (e) => DropdownMenuItem<ServiceDescriptor>(
                   value: e,
-                  child: Text(e.name),
+                  child: Text(e.service.name),
                 ),
               )
               .toList(),
@@ -134,11 +158,17 @@ class _MyHomePageState extends State<MyHomePage> {
           hint: const Text('Select'),
           decoration: const InputDecoration(labelText: 'Method'),
           value: _method,
-          items: (_service?.method ?? [])
+          items: _service?.service.method
               .map(
                 (e) => DropdownMenuItem<MethodDescriptorProto>(
                   value: e,
-                  child: Text(e.name),
+                  child: Row(
+                    children: [
+                      _getMethodIcon(e),
+                      const SizedBox(width: 12),
+                      Text(e.name),
+                    ],
+                  ),
                 ),
               )
               .toList(),
@@ -175,8 +205,13 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             Expanded(
               child: ListView(
-                children: const <Widget>[
-                  ListTile(title: Text('Form will be here.')),
+                padding: const EdgeInsets.all(8),
+                children: <Widget>[
+                  if (inputType != null) const ListTile(title: Text('INPUTS:')),
+                  if (inputType != null) ..._buildForm(inputType),
+                  if (outputType != null)
+                    const ListTile(title: Text('OUTPUTS:')),
+                  if (outputType != null) ..._buildForm(outputType),
                 ],
               ),
             ),
@@ -184,6 +219,21 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       }),
     );
+  }
+
+  List<Widget> _buildForm(DescriptorProto descriptor) {
+    List<Widget> fields = [];
+
+    for (final f in descriptor.field) {
+      fields.add(_buildFormField(f));
+      fields.add(const SizedBox(height: 8));
+    }
+
+    if (fields.isNotEmpty) {
+      fields.removeLast();
+    }
+
+    return fields;
   }
 
   void _connect() async {
@@ -225,4 +275,108 @@ class _MyHomePageState extends State<MyHomePage> {
       _listServices(result, 443);
     }
   }
+
+  DescriptorProto? findDescriptor(String? name) {
+    if (_service == null) {
+      return null;
+    }
+    if (name == null) {
+      return null;
+    }
+
+    name = name.startsWith('.') ? name.substring(1) : name;
+
+    final c = _service!.file.file.messageType
+        .where((element) => element.name == name)
+        .toList();
+
+    if (c.isNotEmpty) {
+      return c.first;
+    }
+
+    return null;
+  }
+
+  Widget _getMethodIcon(MethodDescriptorProto method) {
+    if (method.serverStreaming && method.clientStreaming) {
+      return const Icon(Icons.swap_vert);
+    }
+
+    if (method.serverStreaming && !method.clientStreaming) {
+      return const Icon(Icons.arrow_downward);
+    }
+
+    if (!method.serverStreaming && method.clientStreaming) {
+      return const Icon(Icons.arrow_upward);
+    }
+
+    return const Icon(Icons.circle);
+  }
+
+  Widget _buildFormField(FieldDescriptorProto field) {
+    if (field.type == FieldDescriptorProto_Type.TYPE_BOOL) {
+      return CheckboxListTile(
+        controlAffinity: ListTileControlAffinity.leading,
+        value: false,
+        onChanged: (v) {},
+        title: Text(field.name),
+      );
+    }
+
+    if (field.type == FieldDescriptorProto_Type.TYPE_STRING) {
+      return TextFormField(
+        decoration: InputDecoration(labelText: field.name),
+      );
+    }
+    if (field.type == FieldDescriptorProto_Type.TYPE_INT32 ||
+        field.type == FieldDescriptorProto_Type.TYPE_INT64 ||
+        field.type == FieldDescriptorProto_Type.TYPE_FIXED32 ||
+        field.type == FieldDescriptorProto_Type.TYPE_FIXED64 ||
+        field.type == FieldDescriptorProto_Type.TYPE_SFIXED32 ||
+        field.type == FieldDescriptorProto_Type.TYPE_SFIXED64 ||
+        field.type == FieldDescriptorProto_Type.TYPE_DOUBLE ||
+        field.type == FieldDescriptorProto_Type.TYPE_FLOAT ||
+        field.type == FieldDescriptorProto_Type.TYPE_INT32 ||
+        field.type == FieldDescriptorProto_Type.TYPE_INT64 ||
+        field.type == FieldDescriptorProto_Type.TYPE_UINT32 ||
+        field.type == FieldDescriptorProto_Type.TYPE_UINT64 ||
+        field.type == FieldDescriptorProto_Type.TYPE_SINT32 ||
+        field.type == FieldDescriptorProto_Type.TYPE_SINT64) {
+      return TextFormField(
+        decoration: InputDecoration(labelText: field.name),
+      );
+    }
+
+    if (field.type == FieldDescriptorProto_Type.TYPE_MESSAGE) {
+      return TextFormField(
+        initialValue: 'Message: ${field.typeName}',
+        decoration: InputDecoration(labelText: field.name),
+      );
+    }
+    if (field.type == FieldDescriptorProto_Type.TYPE_ENUM) {
+      return TextFormField(
+        initialValue: 'Enum: ${field.typeName}',
+        decoration: InputDecoration(labelText: field.name),
+      );
+    }
+
+    return ListTile(
+      title: Text(field.name),
+    );
+  }
+}
+
+class FileDescriptor {
+  const FileDescriptor(this.file, this.services);
+
+  final FileDescriptorProto file;
+  final List<ServiceDescriptor> services;
+}
+
+class ServiceDescriptor {
+  ServiceDescriptor(this.service, this.methods);
+
+  late final FileDescriptor file;
+  final ServiceDescriptorProto service;
+  final List<MethodDescriptorProto> methods;
 }
