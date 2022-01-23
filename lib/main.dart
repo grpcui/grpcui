@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:grpc/grpc_or_grpcweb.dart';
 import 'package:grpcui/generated/reflection.pbgrpc.dart';
 import 'package:protobuf_google/protobuf_google.dart';
+import 'package:recase/recase.dart';
 
 void main() {
   runApp(const MyApp());
@@ -141,7 +142,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
       body: LayoutBuilder(builder: (context, constraints) {
-        final small = constraints.biggest.width <= 360;
+        final small = constraints.biggest.width <= 480;
 
         final service = DropdownButtonFormField<ServiceDescriptor>(
           hint: const Text('Select'),
@@ -151,7 +152,7 @@ class _MyHomePageState extends State<MyHomePage> {
               .map(
                 (e) => DropdownMenuItem<ServiceDescriptor>(
                   value: e,
-                  child: Text(e.service.name),
+                  child: Text(e.service.name.titleCase),
                 ),
               )
               .toList(),
@@ -175,7 +176,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     children: [
                       _getMethodIcon(e.method),
                       const SizedBox(width: 12),
-                      Text(e.method.name),
+                      Text(e.method.name.titleCase),
                     ],
                   ),
                 ),
@@ -367,13 +368,13 @@ class _GrpcMessageFieldState extends State<GrpcMessageField> {
         controlAffinity: ListTileControlAffinity.leading,
         value: false,
         onChanged: (v) {},
-        title: Text(field.name),
+        title: Text(field.name.titleCase),
       );
     }
 
     if (field.type == FieldDescriptorProto_Type.TYPE_STRING) {
       return TextFormField(
-        decoration: InputDecoration(labelText: field.name),
+        decoration: InputDecoration(labelText: field.name.titleCase),
       );
     }
     if (field.type == FieldDescriptorProto_Type.TYPE_INT32 ||
@@ -391,7 +392,7 @@ class _GrpcMessageFieldState extends State<GrpcMessageField> {
         field.type == FieldDescriptorProto_Type.TYPE_SINT32 ||
         field.type == FieldDescriptorProto_Type.TYPE_SINT64) {
       return TextFormField(
-        decoration: InputDecoration(labelText: field.name),
+        decoration: InputDecoration(labelText: field.name.titleCase),
       );
     }
 
@@ -399,39 +400,44 @@ class _GrpcMessageFieldState extends State<GrpcMessageField> {
       final ef = widget.service.findEnum(field.typeName);
 
       if (ef == null) {
-        return Card(
-          child: Column(
-            children: [
-              ListTile(
-                title: Text(field.name),
-              ),
-              TextFormField(
-                initialValue: 'Enum: ${field.typeName}',
-                decoration: InputDecoration(labelText: field.name),
-              ),
-            ],
-          ),
+        return Column(
+          children: [
+            ListTile(
+              title: Text(field.name.titleCase),
+            ),
+            TextFormField(
+              initialValue: 'Enum: ${field.typeName}',
+              decoration: InputDecoration(labelText: field.name.titleCase),
+            ),
+          ],
         );
       }
 
       final choices = ef.value
           .map(
-            (e) => RadioListTile<EnumValueDescriptorProto>(
+            (e) => DropdownMenuItem<EnumValueDescriptorProto>(
               value: e,
-              title: Text(e.name),
-              groupValue: null,
-              onChanged: (v) {},
+              child: Text(e.name.titleCase),
             ),
           )
           .toList();
 
-      return Card(
-        child: Column(children: [
-          ListTile(
-            title: Text(field.name),
-          ),
-          ...choices
-        ]),
+      if (field.proto3Optional) {
+        choices.insert(
+            0,
+            const DropdownMenuItem<EnumValueDescriptorProto>(
+              value: null,
+              child: Text(
+                '<null>',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ));
+      }
+
+      return DropdownButtonFormField(
+        onChanged: (v) {},
+        items: choices,
+        decoration: InputDecoration(labelText: field.name.titleCase),
       );
     }
 
@@ -441,15 +447,16 @@ class _GrpcMessageFieldState extends State<GrpcMessageField> {
       if (msg == null) {
         return TextFormField(
           initialValue: 'Message: ${field.typeName}',
-          decoration: InputDecoration(labelText: field.name),
+          decoration: InputDecoration(labelText: field.name.titleCase),
         );
       }
 
-      return Card(
+      return Padding(
+        padding: const EdgeInsetsDirectional.only(start: 0.0),
         child: Column(
           children: [
             ListTile(
-              title: Text(field.name),
+              title: Text(field.name.titleCase),
             ),
             GrpcMessage(msg, widget.service),
           ],
@@ -458,7 +465,7 @@ class _GrpcMessageFieldState extends State<GrpcMessageField> {
     }
 
     return ListTile(
-      title: Text(field.name),
+      title: Text(field.name.titleCase),
     );
   }
 }
