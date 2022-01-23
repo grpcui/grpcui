@@ -52,7 +52,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final List<FileDescriptor> _files = [];
 
   ServiceDescriptor? _service;
-  MethodDescriptorProto? _method;
+  MethodDescriptor? _method;
 
   void _listServices(
     String host,
@@ -85,17 +85,26 @@ class _MyHomePageState extends State<MyHomePage> {
         final fds = f.map((e) => FileDescriptorProto.fromBuffer(e)).toList();
 
         final files = fds.map(
-          (e) {
-            final fdis = FileDescriptor(
-              e,
-              e.service.map((el) => ServiceDescriptor(el, el.method)).toList(),
+          (file) {
+            final filedesc = FileDescriptor(
+              file,
+              file.service.map((svc) {
+                final ms =
+                    svc.method.map((meth) => MethodDescriptor(meth)).toList();
+
+                return ServiceDescriptor(svc, ms);
+              }).toList(),
             );
 
-            for (final sdis in fdis.services) {
-              sdis.file = fdis;
+            for (final svc in filedesc.services) {
+              svc.file = filedesc;
+
+              for (final m in svc.methods) {
+                m.service = svc;
+              }
             }
 
-            return fdis;
+            return filedesc;
           },
         );
 
@@ -118,8 +127,8 @@ class _MyHomePageState extends State<MyHomePage> {
       services.addAll(file.services);
     }
 
-    final inputType = findDescriptor(_method?.inputType);
-    final outputType = findDescriptor(_method?.outputType);
+    final inputType = _service?.findMessage(_method?.method.inputType);
+    final outputType = _service?.findMessage(_method?.method.outputType);
 
     return Scaffold(
       appBar: AppBar(
@@ -154,19 +163,19 @@ class _MyHomePageState extends State<MyHomePage> {
           },
         );
 
-        final method = DropdownButtonFormField<MethodDescriptorProto>(
+        final method = DropdownButtonFormField<MethodDescriptor>(
           hint: const Text('Select'),
           decoration: const InputDecoration(labelText: 'Method'),
           value: _method,
-          items: _service?.service.method
+          items: _service?.methods
               .map(
-                (e) => DropdownMenuItem<MethodDescriptorProto>(
+                (e) => DropdownMenuItem<MethodDescriptor>(
                   value: e,
                   child: Row(
                     children: [
-                      _getMethodIcon(e),
+                      _getMethodIcon(e.method),
                       const SizedBox(width: 12),
-                      Text(e.name),
+                      Text(e.method.name),
                     ],
                   ),
                 ),
@@ -208,10 +217,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 padding: const EdgeInsets.all(8),
                 children: <Widget>[
                   if (inputType != null) const ListTile(title: Text('INPUTS:')),
-                  if (inputType != null) ..._buildForm(inputType),
+                  if (inputType != null) GrpcMessage(inputType, _service!),
                   if (outputType != null)
                     const ListTile(title: Text('OUTPUTS:')),
-                  if (outputType != null) ..._buildForm(outputType),
+                  if (outputType != null) GrpcMessage(outputType, _service!),
                 ],
               ),
             ),
@@ -219,21 +228,6 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       }),
     );
-  }
-
-  List<Widget> _buildForm(DescriptorProto descriptor) {
-    List<Widget> fields = [];
-
-    for (final f in descriptor.field) {
-      fields.add(_buildFormField(f));
-      fields.add(const SizedBox(height: 8));
-    }
-
-    if (fields.isNotEmpty) {
-      fields.removeLast();
-    }
-
-    return fields;
   }
 
   void _connect() async {
@@ -276,27 +270,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  DescriptorProto? findDescriptor(String? name) {
-    if (_service == null) {
-      return null;
-    }
-    if (name == null) {
-      return null;
-    }
-
-    name = name.startsWith('.') ? name.substring(1) : name;
-
-    final c = _service!.file.file.messageType
-        .where((element) => element.name == name)
-        .toList();
-
-    if (c.isNotEmpty) {
-      return c.first;
-    }
-
-    return null;
-  }
-
   Widget _getMethodIcon(MethodDescriptorProto method) {
     if (method.serverStreaming && method.clientStreaming) {
       return const Icon(Icons.swap_vert);
@@ -312,8 +285,83 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return const Icon(Icons.circle);
   }
+}
 
-  Widget _buildFormField(FieldDescriptorProto field) {
+class FileDescriptor {
+  const FileDescriptor(this.file, this.services);
+
+  final FileDescriptorProto file;
+  final List<ServiceDescriptor> services;
+}
+
+class ServiceDescriptor {
+  ServiceDescriptor(this.service, this.methods);
+
+  late final FileDescriptor file;
+  final ServiceDescriptorProto service;
+  final List<MethodDescriptor> methods;
+
+  DescriptorProto? findMessage(String? name) {
+    if (name == null) {
+      return null;
+    }
+
+    name = name.startsWith('.') ? name.substring(1) : name;
+
+    final c =
+        file.file.messageType.where((element) => element.name == name).toList();
+
+    if (c.isNotEmpty) {
+      return c.first;
+    }
+
+    return null;
+  }
+
+  EnumDescriptorProto? findEnum(String? name) {
+    if (name == null) {
+      return null;
+    }
+
+    name = name.startsWith('.') ? name.substring(1) : name;
+
+    final c =
+        file.file.enumType.where((element) => element.name == name).toList();
+
+    if (c.isNotEmpty) {
+      return c.first;
+    }
+
+    return null;
+  }
+}
+
+class MethodDescriptor {
+  MethodDescriptor(this.method);
+
+  late final ServiceDescriptor service;
+  final MethodDescriptorProto method;
+}
+
+class GrpcMessageField extends StatefulWidget {
+  const GrpcMessageField({
+    Key? key,
+    required this.field,
+    required this.service,
+  }) : super(key: key);
+
+  final FieldDescriptorProto field;
+  final ServiceDescriptor service;
+
+  @override
+  State<StatefulWidget> createState() => _GrpcMessageFieldState();
+}
+
+class _GrpcMessageFieldState extends State<GrpcMessageField> {
+  @override
+  Widget build(BuildContext context) {
+    final field = widget.field;
+
     if (field.type == FieldDescriptorProto_Type.TYPE_BOOL) {
       return CheckboxListTile(
         controlAffinity: ListTileControlAffinity.leading,
@@ -347,16 +395,65 @@ class _MyHomePageState extends State<MyHomePage> {
       );
     }
 
-    if (field.type == FieldDescriptorProto_Type.TYPE_MESSAGE) {
-      return TextFormField(
-        initialValue: 'Message: ${field.typeName}',
-        decoration: InputDecoration(labelText: field.name),
+    if (field.type == FieldDescriptorProto_Type.TYPE_ENUM) {
+      final ef = widget.service.findEnum(field.typeName);
+
+      if (ef == null) {
+        return Card(
+          child: Column(
+            children: [
+              ListTile(
+                title: Text(field.name),
+              ),
+              TextFormField(
+                initialValue: 'Enum: ${field.typeName}',
+                decoration: InputDecoration(labelText: field.name),
+              ),
+            ],
+          ),
+        );
+      }
+
+      final choices = ef.value
+          .map(
+            (e) => RadioListTile<EnumValueDescriptorProto>(
+              value: e,
+              title: Text(e.name),
+              groupValue: null,
+              onChanged: (v) {},
+            ),
+          )
+          .toList();
+
+      return Card(
+        child: Column(children: [
+          ListTile(
+            title: Text(field.name),
+          ),
+          ...choices
+        ]),
       );
     }
-    if (field.type == FieldDescriptorProto_Type.TYPE_ENUM) {
-      return TextFormField(
-        initialValue: 'Enum: ${field.typeName}',
-        decoration: InputDecoration(labelText: field.name),
+
+    if (field.type == FieldDescriptorProto_Type.TYPE_MESSAGE) {
+      final msg = widget.service.findMessage(field.typeName);
+
+      if (msg == null) {
+        return TextFormField(
+          initialValue: 'Message: ${field.typeName}',
+          decoration: InputDecoration(labelText: field.name),
+        );
+      }
+
+      return Card(
+        child: Column(
+          children: [
+            ListTile(
+              title: Text(field.name),
+            ),
+            GrpcMessage(msg, widget.service),
+          ],
+        ),
       );
     }
 
@@ -366,17 +463,32 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-class FileDescriptor {
-  const FileDescriptor(this.file, this.services);
+class GrpcMessage extends StatelessWidget {
+  const GrpcMessage(this.descriptor, this.service, {Key? key})
+      : super(key: key);
 
-  final FileDescriptorProto file;
-  final List<ServiceDescriptor> services;
-}
+  final DescriptorProto descriptor;
+  final ServiceDescriptor service;
 
-class ServiceDescriptor {
-  ServiceDescriptor(this.service, this.methods);
+  @override
+  Widget build(BuildContext context) {
+    List<Widget> fields = [];
 
-  late final FileDescriptor file;
-  final ServiceDescriptorProto service;
-  final List<MethodDescriptorProto> methods;
+    for (final field in descriptor.field) {
+      fields.add(GrpcMessageField(
+        field: field,
+        service: service,
+      ));
+
+      fields.add(const SizedBox(height: 8));
+    }
+
+    if (fields.isNotEmpty) {
+      fields.removeLast();
+    }
+
+    return Column(
+      children: fields,
+    );
+  }
 }
