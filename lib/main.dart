@@ -34,6 +34,7 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: theme,
       home: const MyHomePage(),
     );
@@ -99,93 +100,130 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('gRPC UI'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(8),
-        children: <Widget>[
-          DropdownButton<ServiceDescriptorProto>(
-            hint: const Text('Select'),
-            value: _service,
-            items: _services
-                .map(
-                  (e) => DropdownMenuItem<ServiceDescriptorProto>(
-                    value: e,
-                    child: Text(e.name),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) {
-              setState(() {
-                _method = null;
-                _service = v;
-              });
-            },
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.webhook),
+            onPressed: _connect,
           ),
-          const SizedBox(height: 8),
-          DropdownButton<MethodDescriptorProto>(
-            hint: const Text('Select'),
-            value: _method,
-            items: (_service?.method ?? [])
-                .map(
-                  (e) => DropdownMenuItem<MethodDescriptorProto>(
-                    value: e,
-                    child: Text(e.name),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) {
-              setState(() {
-                _method = v;
-              });
-            },
-          ),
-          const SizedBox(height: 8),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
-        onPressed: () async {
-          final controller = TextEditingController();
-          final result = await showDialog<String>(
-              context: context,
-              builder: (context) {
-                return Dialog(
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: controller,
-                        decoration: const InputDecoration(
-                          labelText: 'Host',
-                          hintText: 'grpc.mydomain.com:443',
-                        ),
-                      ),
-                      const Divider(),
-                      ButtonBar(
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop();
-                            },
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.of(context).pop(controller.text);
-                            },
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              });
+      body: LayoutBuilder(builder: (context, constraints) {
+        final small = constraints.biggest.width <= 360;
 
-          if (result != null) {
-            _listServices(result, 443);
-          }
-        },
-      ),
+        final service = DropdownButtonFormField<ServiceDescriptorProto>(
+          hint: const Text('Select'),
+          value: _service,
+          decoration: const InputDecoration(labelText: 'Service'),
+          items: _services
+              .map(
+                (e) => DropdownMenuItem<ServiceDescriptorProto>(
+                  value: e,
+                  child: Text(e.name),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            setState(() {
+              _method = null;
+              _service = v;
+            });
+          },
+        );
+
+        final method = DropdownButtonFormField<MethodDescriptorProto>(
+          hint: const Text('Select'),
+          decoration: const InputDecoration(labelText: 'Method'),
+          value: _method,
+          items: (_service?.method ?? [])
+              .map(
+                (e) => DropdownMenuItem<MethodDescriptorProto>(
+                  value: e,
+                  child: Text(e.name),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            setState(() {
+              _method = v;
+            });
+          },
+        );
+
+        return Column(
+          children: [
+            const SizedBox(height: 4),
+            if (small)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: service,
+              ),
+            if (small)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: method,
+              ),
+            if (!small)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  children: [
+                    Expanded(child: service),
+                    const SizedBox(width: 8),
+                    Expanded(child: method),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(8),
+                children: const <Widget>[
+                  ListTile(title: Text('Form will be here.')),
+                  ListTile(title: Text('Form will be here.')),
+                ],
+              ),
+            ),
+          ],
+        );
+      }),
     );
+  }
+
+  void _connect() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            content: Column(
+              children: [
+                TextFormField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    labelText: 'Host',
+                    hintText: 'grpc.mydomain.com:443',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop(controller.text);
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        });
+
+    if (result != null) {
+      _listServices(result, 443);
+    }
   }
 }
