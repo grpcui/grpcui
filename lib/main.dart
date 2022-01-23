@@ -175,9 +175,7 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.all(8),
                 children: const <Widget>[
-                  ListTile(title: Text('Form will be here.')),
                   ListTile(title: Text('Form will be here.')),
                 ],
               ),
@@ -195,6 +193,7 @@ class _MyHomePageState extends State<MyHomePage> {
         builder: (context) {
           return AlertDialog(
             content: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 TextFormField(
                   controller: controller,
