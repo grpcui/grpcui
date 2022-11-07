@@ -1,0 +1,86 @@
+name: GitHub Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  version:
+    name: Create version number
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Fetch all history for all tags and branches
+        run: |
+          git config remote.origin.url https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }}
+          git fetch --prune --depth=10000
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v0.9.14
+        env:
+          LD_LIBRARY_PATH: ./runtimes/ubuntu.18.04-x64/native/
+        with:
+          versionSpec: "5.x"
+      - name: Use GitVersion
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v0.9.14
+      - name: Create version.txt with nuGetVersion
+        run: echo ${{ steps.gitversion.outputs.nuGetVersion  }} > version.txt
+      - name: Upload version.txt
+        uses: actions/upload-artifact@v2
+        with:
+          name: gitversion
+          path: version.txt
+  build:
+    name: Build and Create release
+    needs: [version]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Get version.txt
+        uses: actions/download-artifact@v2
+        with:
+          name: gitversion
+      - name: Create new file without newline char from version.txt
+        run: tr -d '\n' < version.txt > version1.txt
+      - name: Read version
+        id: version
+        uses: juliangruber/read-file-action@v1
+        with:
+          path: version1.txt
+      - name: Update version in YAML
+        run: sed -i 's/99.99.99+99/${{ steps.version.outputs.content }}+${{ github.run_number }}/g' pubspec.yaml
+      - name: Update KeyStore password in gradle properties
+        run: sed -i 's/#{ANDROID_KEYSTORE_PASS}#/${{ secrets.ANDROID_KEYSTORE_PASS }}/g' android/key.properties
+      - name: Update KeyStore key password in gradle properties
+        run: sed -i 's/#{ANDROID_KEYSTORE_KEY_PASS}#/${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}/g' android/key.properties
+      - name: Retrieve the signing key and decode it to a file
+        env:
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+        run: |
+          echo $ANDROID_SIGNING_KEY | base64 --decode > android/app/grpcui.jks
+      - uses: actions/setup-java@v2
+        with:
+          distribution: "zulu"
+          java-version: "11"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: "master"
+      - run: flutter pub get
+      - run: flutter test
+      - name: Build Web App
+        run: flutter build web --base-href /grpcui/
+      - name: Create Tar File
+        run: tar -C build/web/ -zcvf build/web.tar.gz .
+      - name: Create Zip File
+        run: cd build/web && zip -r ../../build/web.zip .
+      - name: Build Android APK
+        run: flutter build apk --release --split-per-abi
+      - name: Build Android Bundle
+        run: flutter build appbundle
+      - name: Create a Release in GitHub
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "build/app/outputs/apk/release/*.apk,build/app/outputs/bundle/release/app-release.aab,build/web.tar.gz,build/web.zip"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.version.outputs.content }}
+          commit: ${{ github.sha }}
