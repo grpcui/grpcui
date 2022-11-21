@@ -152,7 +152,7 @@ class _DynamicFormState extends State<DynamicForm> {
           value[fieldKey] = null;
         }
 
-        children.add(BoolFormField(
+        children.add(BoFormField(
           required: required,
           onChanged: (v) {
             value[fieldKey] = v;
@@ -469,8 +469,48 @@ class _DoubleTextFormFieldState extends State<DoubleTextFormField> {
   }
 }
 
-class BoolFormField extends StatefulWidget {
-  const BoolFormField({
+class BoolFormField extends FormField<bool> {
+  BoolFormField({
+    super.key,
+    Widget? label,
+    void Function(bool? value)? onChanged,
+    void Function(bool? value)? onSaved,
+    FormFieldValidator<bool>? validator,
+    bool? initialValue,
+    bool? dense,
+    ListTileControlAffinity controlAffinity = ListTileControlAffinity.platform,
+    String? restorationId,
+    bool enabled = true,
+    AutovalidateMode? autovalidateMode,
+  }) : super(
+            initialValue: initialValue,
+            restorationId: restorationId,
+            enabled: enabled,
+            autovalidateMode: autovalidateMode,
+            onSaved: onSaved,
+            validator: validator,
+            builder: (field) {
+              void onChangedHnadler(bool? value) {
+                field.didChange(value);
+                onChanged?.call(value ?? false);
+              }
+
+              return UnmanagedRestorationScope(
+                bucket: field.bucket,
+                child: SwitchListTile(
+                  title: label,
+                  value: field.value ?? false,
+                  onChanged: onChangedHnadler,
+                  dense: dense,
+                  controlAffinity: controlAffinity,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              );
+            });
+}
+
+class BoFormField extends StatefulWidget {
+  const BoFormField({
     super.key,
     required this.onChanged,
     required this.required,
@@ -484,21 +524,35 @@ class BoolFormField extends StatefulWidget {
   final bool? value;
 
   @override
-  State<StatefulWidget> createState() => _BoolFormFieldState();
+  State<StatefulWidget> createState() => _BoFormFieldState();
 }
 
-class _BoolFormFieldState extends State<BoolFormField> {
+class _BoFormFieldState extends State<BoFormField> {
   void _onChanged(bool? v) {
-    widget.onChanged.call(v);
+    if (widget.required) {
+      widget.onChanged.call(v ?? false);
+    } else {
+      widget.onChanged.call(v);
+    }
+  }
+
+  void _onSaved(bool? v) {
+    if (widget.required) {
+      widget.onChanged.call(v ?? false);
+    } else {
+      widget.onChanged.call(v);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return CheckboxListTile(
-      controlAffinity: ListTileControlAffinity.leading,
-      title: Text(_recase(widget.label)),
+    return BoolFormField(
+      label: Text(_recase(widget.label)),
+      onSaved: _onSaved,
       onChanged: _onChanged,
-      value: widget.value ?? false,
+      initialValue: widget.value ?? false,
+      controlAffinity: ListTileControlAffinity.leading,
+      dense: true,
     );
   }
 }
