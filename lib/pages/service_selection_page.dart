@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'dart:typed_data';
 
@@ -117,12 +118,18 @@ class _ServiceSelectionPageState extends State<ServiceSelectionPage> {
         ],
       ),
       body: Form(
-        child: Builder(builder: _build),
+        child: LayoutBuilder(builder: (context, contraints) {
+          if (contraints.maxWidth < 480) {
+            return _buildMobile(context, contraints);
+          } else {
+            return _buildDesktop(context, contraints);
+          }
+        }),
       ),
     );
   }
 
-  Widget _build(BuildContext context) {
+  Widget _buildMobile(BuildContext context, BoxConstraints constraints) {
     final services = _serviceInfos;
     final selectedService = _selectedService;
     final selectedMethod = _selectedMethod;
@@ -149,11 +156,6 @@ class _ServiceSelectionPageState extends State<ServiceSelectionPage> {
                         (e) => DropdownMenuItem<ServiceInfo>(
                           value: e,
                           child: Text(_recase(e.name)),
-                          // child: ListTile(
-                          //   dense: true,
-                          //   title: Text(_recase(e.name)),
-                          //   subtitle: Text(e.name),
-                          // ),
                         ),
                       )
                       .toList(),
@@ -233,6 +235,130 @@ class _ServiceSelectionPageState extends State<ServiceSelectionPage> {
                 ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktop(BuildContext context, BoxConstraints constraints) {
+    final services = _serviceInfos;
+    final selectedService = _selectedService;
+    final selectedMethod = _selectedMethod;
+
+    if (services.isEmpty) {
+      return const Center(
+        child: Text('Loading...'),
+      );
+    }
+
+    final sidebarWidth = min(360.0, max(240.0, constraints.maxWidth / 5.0));
+
+    final widgets = <Widget>[];
+
+    for (final service in _serviceInfos) {
+      if (service.service.method.isEmpty) {
+        continue;
+      }
+
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            _recase(service.name),
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+      );
+
+      for (final method in service.service.method) {
+        widgets.add(ListTile(
+          dense: true,
+          title: Text(_recase(method.name)),
+          leading: const Icon(Icons.circle, size: 16),
+          onTap: () {
+            _selectedService = service;
+            _selectedMethod = method;
+
+            setState(() {});
+          },
+        ));
+      }
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: sidebarWidth,
+          child: ListView(
+            children: widgets,
+          ),
+        ),
+        const VerticalDivider(
+          indent: 8,
+          endIndent: 8,
+        ),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    children: [
+                      if (selectedService != null && selectedMethod != null)
+                        DynamicForm(
+                          required: true,
+                          onChanged: (v) {
+                            setState(() {});
+                          },
+                          value: _value,
+                          schema: selectedService
+                              .findMessageType(selectedMethod.inputType),
+                          resolveMessageType: selectedService.findMessageType,
+                        ),
+                      ..._headers.entries.map((e) => Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: SelectableText('${e.key}: ${e.value}'),
+                          )),
+                      ..._data.map(
+                        (e) => Padding(
+                          padding: const EdgeInsets.all(4.0),
+                          child: Material(
+                            type: MaterialType.card,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: SelectableText(pretty(e)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      ..._trailers.entries.map((e) => Padding(
+                            padding: const EdgeInsets.all(4.0),
+                            child: SelectableText('${e.key}: ${e.value}'),
+                          )),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: ButtonBar(
+                    children: [
+                      SizedBox(
+                        width: 200,
+                        child: ElevatedButton(
+                          onPressed: selectedMethod == null
+                              ? null
+                              : () => _submit(context),
+                          child: const Text('Run'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],

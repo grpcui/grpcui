@@ -3,6 +3,8 @@ import 'package:fixnum/fixnum.dart' as fixnum;
 import 'package:flutter/material.dart';
 import 'package:recase/recase.dart';
 
+import 'form_fields.dart';
+
 class DynamicForm extends StatefulWidget {
   const DynamicForm({
     super.key,
@@ -467,46 +469,6 @@ class _DoubleTextFormFieldState extends State<DoubleTextFormField> {
       },
     );
   }
-}
-
-class BoolFormField extends FormField<bool> {
-  BoolFormField({
-    super.key,
-    Widget? label,
-    void Function(bool? value)? onChanged,
-    void Function(bool? value)? onSaved,
-    FormFieldValidator<bool>? validator,
-    bool? initialValue,
-    bool? dense,
-    ListTileControlAffinity controlAffinity = ListTileControlAffinity.platform,
-    String? restorationId,
-    bool enabled = true,
-    AutovalidateMode? autovalidateMode,
-  }) : super(
-            initialValue: initialValue,
-            restorationId: restorationId,
-            enabled: enabled,
-            autovalidateMode: autovalidateMode,
-            onSaved: onSaved,
-            validator: validator,
-            builder: (field) {
-              void onChangedHnadler(bool? value) {
-                field.didChange(value);
-                onChanged?.call(value ?? false);
-              }
-
-              return UnmanagedRestorationScope(
-                bucket: field.bucket,
-                child: SwitchListTile(
-                  title: label,
-                  value: field.value ?? false,
-                  onChanged: onChangedHnadler,
-                  dense: dense,
-                  controlAffinity: controlAffinity,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              );
-            });
 }
 
 class BoFormField extends StatefulWidget {
