@@ -189,7 +189,9 @@ class _ServiceSelectionPageState extends State<ServiceSelectionPage> {
               if (selectedService != null && selectedMethod != null)
                 DynamicForm(
                   required: true,
-                  onChanged: (v) {},
+                  onChanged: (v) {
+                    setState(() {});
+                  },
                   value: _value,
                   schema:
                       selectedService.findMessageType(selectedMethod.inputType),

@@ -147,6 +147,20 @@ class _DynamicFormState extends State<DynamicForm> {
           label: _recase(field.name),
           value: value[fieldKey] as double?,
         ));
+      } else if (field.type == FieldDescriptorProto_Type.TYPE_BOOL) {
+        if (value[fieldKey] is! bool?) {
+          value[fieldKey] = null;
+        }
+
+        children.add(BoolFormField(
+          required: required,
+          onChanged: (v) {
+            value[fieldKey] = v;
+            widget.onChanged.call(value);
+          },
+          label: _recase(field.name),
+          value: value[fieldKey] as bool?,
+        ));
       } else {
         children.add(StringTextFormField(
           required: required,
@@ -451,6 +465,40 @@ class _DoubleTextFormFieldState extends State<DoubleTextFormField> {
 
         return null;
       },
+    );
+  }
+}
+
+class BoolFormField extends StatefulWidget {
+  const BoolFormField({
+    super.key,
+    required this.onChanged,
+    required this.required,
+    required this.label,
+    required this.value,
+  });
+
+  final void Function(bool? value) onChanged;
+  final bool required;
+  final String label;
+  final bool? value;
+
+  @override
+  State<StatefulWidget> createState() => _BoolFormFieldState();
+}
+
+class _BoolFormFieldState extends State<BoolFormField> {
+  void _onChanged(bool? v) {
+    widget.onChanged.call(v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CheckboxListTile(
+      controlAffinity: ListTileControlAffinity.leading,
+      title: Text(_recase(widget.label)),
+      onChanged: _onChanged,
+      value: widget.value ?? false,
     );
   }
 }
