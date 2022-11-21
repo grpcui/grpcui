@@ -82,5 +82,5 @@ jobs:
         with:
           artifacts: "build/app/outputs/apk/release/*.apk,build/app/outputs/bundle/release/app-release.aab,build/web.tar.gz,build/web.zip"
           token: ${{ secrets.GITHUB_TOKEN }}
-          # tag: ${{ steps.version.outputs.content }}
+          tag: ${{ steps.version.outputs.content }}
           commit: ${{ github.sha }}
