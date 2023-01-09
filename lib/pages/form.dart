@@ -195,6 +195,13 @@ class _DynamicFormState extends State<DynamicForm> {
 
         children.add(DropdownButtonFormField<int>(
           items: items,
+          validator: (v) {
+            if (v == null && required) {
+              return 'Required.';
+            }
+
+            return null;
+          },
           onChanged: (v) {
             value[fieldKey] = v;
             widget.onChanged.call(value);
