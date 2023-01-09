@@ -198,6 +198,7 @@ class _ServiceSelectionPageState extends State<ServiceSelectionPage> {
                   schema:
                       selectedService.findMessageType(selectedMethod.inputType),
                   resolveMessageType: selectedService.findMessageType,
+                  resolveEnumType: selectedService.findEnumType,
                 ),
               ..._headers.entries.map((e) => Padding(
                     padding: const EdgeInsets.all(4.0),
@@ -317,6 +318,7 @@ class _ServiceSelectionPageState extends State<ServiceSelectionPage> {
                           schema: selectedService
                               .findMessageType(selectedMethod.inputType),
                           resolveMessageType: selectedService.findMessageType,
+                          resolveEnumType: selectedService.findEnumType,
                         ),
                       ..._headers.entries.map((e) => Padding(
                             padding: const EdgeInsets.all(4.0),

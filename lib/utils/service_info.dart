@@ -20,8 +20,21 @@ class ServiceInfo {
 
     throw Exception();
   }
-}
 
+  EnumDescriptorProto findEnumType(String name) {
+    name = _trimDot(name);
+    //
+    for (final file in files) {
+      for (final messageType in file.enumType) {
+        if (_trimDot('${file.package}.${messageType.name}') == name) {
+          return messageType;
+        }
+      }
+    }
+
+    throw Exception();
+  }
+}
 
 String _trimDot(String v) {
   while (v.startsWith('.')) {

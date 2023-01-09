@@ -13,6 +13,7 @@ class DynamicForm extends StatefulWidget {
     required this.value,
     required this.schema,
     required this.resolveMessageType,
+    required this.resolveEnumType,
     required this.onChanged,
   });
 
@@ -22,6 +23,7 @@ class DynamicForm extends StatefulWidget {
   final Map<String, Object?> value;
   final DescriptorProto schema;
   final DescriptorProto Function(String typeName) resolveMessageType;
+  final EnumDescriptorProto Function(String typeName) resolveEnumType;
 
   @override
   State<StatefulWidget> createState() => _DynamicFormState();
@@ -62,6 +64,7 @@ class _DynamicFormState extends State<DynamicForm> {
               widget.onChanged.call(value);
             },
             resolveMessageType: widget.resolveMessageType,
+            resolveEnumType: widget.resolveEnumType,
             schema: widget.resolveMessageType.call(field.typeName),
             label: _recase(field.name),
             value: value[fieldKey] as Map<String, Object?>,
@@ -163,6 +166,48 @@ class _DynamicFormState extends State<DynamicForm> {
           label: _recase(field.name),
           value: value[fieldKey] as bool?,
         ));
+      } else if (field.type == FieldDescriptorProto_Type.TYPE_ENUM) {
+        if (value[fieldKey] is! int?) {
+          value[fieldKey] = null;
+        }
+
+        final enumType = widget.resolveEnumType.call(field.typeName);
+        const nullItem = DropdownMenuItem<int>(
+          value: null,
+          child: Text(
+            '<Null>',
+            style: TextStyle(fontStyle: FontStyle.italic),
+          ),
+        );
+
+        final items = enumType.value
+            .map(
+              (e) => DropdownMenuItem<int>(
+                value: e.number,
+                child: Text(_recase(e.name)),
+              ),
+            )
+            .toList();
+
+        if (!required) {
+          items.insert(0, nullItem);
+        }
+
+        children.add(DropdownButtonFormField<int>(
+          items: items,
+          onChanged: (v) {
+            value[fieldKey] = v;
+            widget.onChanged.call(value);
+          },
+          onSaved: (v) {
+            value[fieldKey] = v;
+            widget.onChanged.call(value);
+          },
+          decoration: InputDecoration(labelText: _recase(field.name)),
+          value: value[fieldKey] as int?,
+        ));
+
+        //
       } else {
         children.add(StringTextFormField(
           required: required,
@@ -508,14 +553,26 @@ class _BoFormFieldState extends State<BoFormField> {
 
   @override
   Widget build(BuildContext context) {
-    return BoolFormField(
-      label: Text(_recase(widget.label)),
-      onSaved: _onSaved,
-      onChanged: _onChanged,
-      initialValue: widget.value ?? false,
-      controlAffinity: ListTileControlAffinity.leading,
-      dense: true,
-    );
+    if (widget.required) {
+      return SwitchFormField(
+        label: Text(_recase(widget.label)),
+        onSaved: _onSaved,
+        onChanged: _onChanged,
+        initialValue: widget.value ?? false,
+        controlAffinity: ListTileControlAffinity.leading,
+        dense: true,
+      );
+    } else {
+      return CheckBoxFormField(
+        label: Text(_recase(widget.label)),
+        onSaved: _onSaved,
+        onChanged: _onChanged,
+        initialValue: widget.value,
+        controlAffinity: ListTileControlAffinity.leading,
+        dense: true,
+        tristate: true,
+      );
+    }
   }
 }
 
