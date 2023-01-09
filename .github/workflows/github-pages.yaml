@@ -24,7 +24,7 @@ jobs:
       - run: flutter pub get
       - run: flutter test
       - name: Build Web App
-        run: flutter build web
+        run: flutter build web --no-tree-shake-icons
       - name: Upload Artifacts
         uses: actions/upload-pages-artifact@v1
         with:

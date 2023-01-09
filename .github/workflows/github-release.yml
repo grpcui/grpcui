@@ -68,15 +68,15 @@ jobs:
       - run: flutter pub get
       - run: flutter test
       - name: Build Web App
-        run: flutter build web --base-href /grpcui/
+        run: flutter build web --base-href /grpcui/  --no-tree-shake-icons
       - name: Create Tar File
         run: tar -C build/web/ -zcvf build/web.tar.gz .
       - name: Create Zip File
         run: cd build/web && zip -r ../../build/web.zip .
       - name: Build Android APK
-        run: flutter build apk --release --split-per-abi
+        run: flutter build apk --release --split-per-abi  --no-tree-shake-icons
       - name: Build Android Bundle
-        run: flutter build appbundle
+        run: flutter build appbundle --no-tree-shake-icons
       - name: Create a Release in GitHub
         uses: ncipollo/release-action@v1
         with:
