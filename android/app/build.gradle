@@ -32,7 +32,7 @@ apply plugin: 'kotlin-android'
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
-    namespace dev.grpcui.app
+    namespace 'dev.grpcui.app'
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
