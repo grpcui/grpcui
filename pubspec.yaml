@@ -32,7 +32,7 @@ dependencies:
   flutter:
     sdk: flutter
   grpc: any
-  protobuf: any
+  protobuf: ^3.0.0
   fixnum: any
   http2: any
   recase: any
