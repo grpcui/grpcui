@@ -19,7 +19,7 @@ class _ServerSelectionPageState extends State<ServerSelectionPage> {
         title: const Text('gRPC UI'),
         actions: [
           IconButton(
-            icon: const Icon(MdiIcons.github),
+            icon: Icon(MdiIcons.github),
             onPressed: () {
               launchUrl(
                 Uri.parse('https://github.com/grpcui/grpcui/'),

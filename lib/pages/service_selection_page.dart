@@ -107,7 +107,7 @@ class _ServiceSelectionPageState extends State<ServiceSelectionPage> {
             tooltip: 'Refresh',
           ),
           IconButton(
-            icon: const Icon(MdiIcons.github),
+            icon: Icon(MdiIcons.github),
             onPressed: () {
               launchUrl(
                 Uri.parse('https://github.com/grpcui/grpcui/'),
